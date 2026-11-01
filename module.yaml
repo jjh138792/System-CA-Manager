@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/KernelSU-Modules/tools/main/schemas/module.schema.json
+schemaVersion: 1
+id: cacerts_bind_manager
+name: System CA Manager
+summary: 系统证书管理模块，自动适配 /system 与 Android 14+ /apex 证书路径
+description: README.md
+license: GPL-3.0-only
+homepage: https://github.com/jjh138792/System-CA-Manager
+support: https://github.com/jjh138792/System-CA-Manager/issues
+tags: [system]
+metamodule: false
+authors:
+  - name: jjh138792
+    url: https://github.com/jjh138792
+
+release:
+  assetPattern: "System-CA-Manager.zip"
