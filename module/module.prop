@@ -1,0 +1,7 @@
+id=cacerts_bind_manager
+name=System CA Manager
+version=v1.0.0
+versionCode=100
+author=jjh138792
+description=系统证书管理模块，自动适配 /system 与 Android 14+ /apex 证书路径
+updateJson=https://github.com/jjh138792/System-CA-Manager/update.json
