@@ -1,2 +1,2 @@
-module/
-  *
+*.zip
+node_modules/
