@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>CertBind Manager</title>
+    <!-- 引入 KernelSU 官方安全区 Insets 与动态配色变量 -->
+    <link rel="stylesheet" href="https://mui.kernelsu.org/internal/insets.css" />
+    <link rel="stylesheet" href="https://mui.kernelsu.org/internal/colors.css" />
+    <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部标题与状态栏 -->
+        <header class="top-bar">
+            <div class="brand">
+                <div class="brand-icon">🛡️</div>
+                <div>
+                    <h1>CertBind 系统证书管家</h1>
+                    <p id="envSubtitle">正在检测系统证书路径...</p>
+                </div>
+            </div>
+            <button id="btnRefresh" class="icon-btn" title="刷新并重新校验">↻</button>
+        </header>
+
+        <!-- 系统状态与挂载模式控制卡片 -->
+        <section class="status-grid">
+            <div class="glass-card Engine-card">
+                <div class="engine-header">
+                    <div>
+                        <span class="badge" id="managerBadge">检测中</span>
+                        <h2 id="mountModeTitle">内置 Bind Mount 引擎</h2>
+                        <p id="mountModeDesc">已启用 skip_mount，通过 Inode 实时校验挂载有效性</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggleBindMount" checked />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="metrics-row">
+                    <div class="metric-item">
+                        <span class="metric-label">目标路径</span>
+                        <span class="metric-val mono" id="statTargetDir">--</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">校验机制</span>
+                        <span class="metric-val" id="statVerifyMethod">Inode 严格比对</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">生效/自定义/屏蔽</span>
+                        <span class="metric-val" id="statCounts">0 / 0 / 0</span>
+                    </div>
+                </div>
+
+                <div class="engine-actions">
+                    <button id="btnRemount" class="btn btn-secondary">⚡ 立即重载挂载</button>
+                    <button id="btnOpenAddModal" class="btn btn-primary">＋ 添加系统证书</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 搜索与分类筛选栏 -->
+        <section class="toolbar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索 Hash (如 9a5ba575.0) 或证书机构名称..." />
+            </div>
+            <div class="filter-tabs" id="filterTabs">
+                <button class="tab active" data-filter="all">全部</button>
+                <button class="tab" data-filter="custom">新增/已改</button>
+                <button class="tab" data-filter="stock">系统原厂</button>
+                <button class="tab" data-filter="deleted">已屏蔽</button>
+                <button class="tab" data-filter="unmounted">未生效告警</button>
+            </div>
+        </section>
+
+        <!-- 证书列表容器 -->
+        <main id="certList" class="cert-list">
+            <div class="empty-state">正在读取并校验系统证书...</div>
+        </main>
+    </div>
+
+    <!-- 查看 / 修改证书详情弹窗 -->
+    <div id="detailModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modalCertHash">00000000.0</h3>
+                    <span id="modalVerifyBadge" class="verify-pill">校验中</span>
+                </div>
+                <button class="close-btn" id="btnCloseDetail">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="info-list">
+                    <div class="info-row"><span>颁发给 (Subject)</span><strong id="detailSubject">--</strong></div>
+                    <div class="info-row"><span>颁发者 (Issuer)</span><strong id="detailIssuer">--</strong></div>
+                    <div class="info-row"><span>有效期至</span><strong id="detailExpiry">--</strong></div>
+                    <div class="info-row"><span>安装状态对账</span><strong class="mono" id="detailProof">--</strong></div>
+                </div>
+                <label class="field-label" for="detailPemTextarea">证书内容 (可直接编辑修改 PEM / 文本)</label>
+                <textarea id="detailPemTextarea" class="code-textarea" rows="9" spellcheck="false"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="btnDeleteCert" class="btn btn-danger">删除/屏蔽</button>
+                <button id="btnRestoreCert" class="btn btn-secondary hidden">恢复原厂</button>
+                <button id="btnSaveCert" class="btn btn-primary">保存修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加新证书弹窗 -->
+    <div id="addModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <div>
+                    <h3>添加系统根证书</h3>
+                    <p class="sub-hint">支持上传 .crt / .pem / .cer / .0 文件，自动计算 OpenSSL Old Hash</p>
+                </div>
+                <button class="close-btn" id="btnCloseAdd">✕</button>
+            </div>
+            <div class="modal-body">
+                <label class="file-dropzone" for="certFileInput">
+                    <input type="file" id="certFileInput" accept=".0,.pem,.crt,.cer,.der" hidden />
+                    <span>📂 点击选择证书文件 (.crt / .pem / .cer / .0)</span>
+                </label>
+                <div class="form-row">
+                    <label class="field-label" for="addHashInput">目标证书文件名 (8位Hash.0，可自动计算)</label>
+                    <input type="text" id="addHashInput" class="text-input mono" placeholder="例如: 9a5ba575.0" />
+                </div>
+                <div class="form-row">
+                    <label class="field-label" for="addPemTextarea">PEM 证书内容</label>
+                    <textarea id="addPemTextarea" class="code-textarea" rows="8" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btnConfirmAdd" class="btn btn-primary full-width">立即安装并挂载</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+</body>
+</html>
